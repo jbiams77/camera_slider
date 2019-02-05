@@ -100,10 +100,10 @@ font = ImageFont.load_default()
 
 # Alternatively load a TTF font.  Make sure the .ttf font file is in the same directory as the python script!
 # Some other nice fonts to try: http://www.dafont.com/bitmap.php
-font = ImageFont.truetype('Montserrat-Light.ttf', 12)
-font2 = ImageFont.truetype('fontawesome-webfont.ttf', 14)
-font_icon_big = ImageFont.truetype('fontawesome-webfont.ttf', 20)
-font_text_big = ImageFont.truetype('Montserrat-Medium.ttf', 19)
+#font = ImageFont.truetype('Montserrat-Light.ttf', 12)
+#font2 = ImageFont.truetype('fontawesome-webfont.ttf', 14)
+#font_icon_big = ImageFont.truetype('fontawesome-webfont.ttf', 20)
+#font_text_big = ImageFont.truetype('Montserrat-Medium.ttf', 19)
 
 while True:
 
@@ -124,13 +124,13 @@ while True:
     Temperature = subprocess.check_output(cmd, shell = True )
 
     # Icons
-    draw.text((x, top),       chr(61931),  font=font2, fill=255)
-    draw.text((x+50, top+52), chr(61888),  font=font2, fill=255)
-    draw.text((x, top+52),    chr(62152),  font=font2, fill=255)
-    draw.text((x, top+15),    chr(61666),  font=font_icon_big, fill=255)
+    draw.text((x, top),       'a',  font=font, fill=255)
+    draw.text((x+50, top+52), 'b',  font=font, fill=255)
+    draw.text((x, top+52),    'c',  font=font, fill=255)
+    draw.text((x, top+15),    'd',  font=font, fill=255)
     
     draw.text((18, top),      str(IP),  font=font, fill=255)
-    draw.text((x+22, top+12), str(CPU), font=font_text_big, fill=255)
+    draw.text((x+22, top+12), str(CPU), font=font, fill=255)
     draw.text((x, top+36),    str(MemUsage),  font=font, fill=255)
     #draw.text((x, top+39),   str(Disk),  font=font, fill=255)
     draw.text((x+66, top+52), str(Disk),  font=font, fill=255)
