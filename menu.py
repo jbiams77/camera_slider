@@ -19,9 +19,9 @@ GPIO.setwarnings(False)
 # SELECT = 16
 
 # GPIO.BCM settings
-UP = 24
-DOWN = 18
+UP = 4
 SELECT = 23
+DOWN = 24
 
 
 class MenuType(enum.Enum):
