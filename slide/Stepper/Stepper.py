@@ -23,6 +23,9 @@ class Stepper:
         GPIO.setup(self.STEP, GPIO.OUT)
         GPIO.setup(self.MODE0, GPIO.OUT)
         GPIO.setup(self.MODE1, GPIO.OUT)
+        #by default, full step
+        GPIO.output(self.MODE0, 0)
+        GPIO.output(self.MODE1, 0)
 
     def fullStep(self):
         GPIO.output(self.MODE0, 0)
@@ -67,6 +70,9 @@ class Stepper:
             sleep(0.01)
             GPIO.output(self.STEP, GPIO.LOW)
             sleep(0.01)
+
+    def zero(self):
+        self.step_tracker = 0
         
 
 

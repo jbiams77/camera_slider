@@ -16,6 +16,7 @@ class Button:
         self.upLastState = None
         self.selectLastState = None
         self.downLastState = None
+        self.menuOption = 0
         self.s1 = Stepper()
         self.s1.eigthStep()
         GPIO.setmode(GPIO.BOARD)
@@ -28,9 +29,9 @@ class Button:
 
     def set_menu(self, menu):
         self.menu = menu
-        GPIO.add_event_detect(self.up, GPIO.RISING, callback=self.__up, bouncetime=200)
-        GPIO.add_event_detect(self.select, GPIO.RISING, callback=self.__button, bouncetime=200)
-        GPIO.add_event_detect(self.down, GPIO.RISING, callback=self.__down, bouncetime=200)
+        GPIO.add_event_detect(self.up, GPIO.RISING, callback=self.__up, bouncetime=400)
+        GPIO.add_event_detect(self.select, GPIO.RISING, callback=self.__button, bouncetime=400)
+        GPIO.add_event_detect(self.down, GPIO.RISING, callback=self.__down, bouncetime=400)
         self.upLastState = GPIO.input(self.up)
         self.selectLastState = GPIO.input(self.select)
         self.downLastState = GPIO.input(self.down)
@@ -38,31 +39,11 @@ class Button:
 
     def __up(self, channel):
         print('up')
-        self.s1.move(1000, .0001, 1)
-        '''
-        up_state = GPIO.input(self.up)
-        down_state = GPIO.input(self.down)
-        if up_state == 1:
-            print(up_state)
-            self.menu.change_highlight(-1)
-        elif down_state == 1:
-            self.menu.change_highlight(1)
-        self.menu.render()
-        '''
+        self.menu.changeMenu(1)
 
     def __down(self, channel):
         print('down')
-        self.s1.move(1000, .0001, 0)
-        '''
-        up_state = GPIO.input(self.up)
-        down_state = GPIO.input(self.down)
-        if up_state == 1:
-            print(up_state)
-            self.menu.change_highlight(-1)
-        elif down_state == 1:
-            self.menu.change_highlight(1)
-        self.menu.render()
-        '''
+        self.menu.changeMenu(-1)
 
     def __button(self, channel):
         print('Button on pin {} pushed'.format(channel))

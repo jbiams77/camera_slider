@@ -1,83 +1,69 @@
 import os
 import threading
-
+import time
 from Adafruit import SSD1306
 from RPi import GPIO
-from Stepper.Stepper import Stepper
 from PIL import Image, ImageDraw, ImageFont
 
+'''
+The following class serves to represent a node of menu objects. 
+Each selectable item represents a different menu option with access to these fields.
+This still needs to be finished and is currently unused.
+'''
+class Menu(object):
 
-class Menu:
+    def __init__(self, topMenu=None, subMenu=[]):
+        self.topMenu = topMenu
+        #these submenus allow the user to access menu specific items
+        self.subMenu = []
+        
+'''
+This class currently drives the menus. It creates 5 top level menus
+based on .png files and works with Button class to move through the 
+menu with setMenuOption Function.
+'''
+class MainMenu:
 
     def __init__(self, options=[]):
-        self.options = options
-        self.highlightOption = None
-        self.rowCount = 3
+        self.menuOption = 0
+        self.RST = 24
+        self.oled = SSD1306.SSD1306_128_64(rst=None, gpio=GPIO)
 
-        self.oled = SSD1306.SSD1306_128_32(rst=None, gpio=GPIO)
-        self.oled.begin()
+        # self.oled.begin()
         self.oled.clear()
         self.oled.display()
+        self.home = Image.open('HOME.png').convert('1')
+        self.start = Image.open('START.png').convert('1')
+        self.camera = Image.open('CAMERA.png').convert('1')
+        self.adjust = Image.open('ADJUST.png').convert('1')
+        self.settings = Image.open('SETTINGS.png').convert('1')
+        self.refreshDisplay(self.home)
 
-        self.image = Image.new('1', (self.oled.width, self.oled.height))
-        self.draw = ImageDraw.Draw(self.image)
-        self.font = ImageFont.truetype(os.path.dirname(__file__) + '/pixel_arial_11.ttf', 8)
-
-        self.renderThread = None
-
-    def set_options(self, options):
-        self.options = options
-        self.highlightOption = None
-
-    def set_highlight(self, highlight):
-        if highlight is None:
-            self.highlightOption = None
-        elif highlight < 0:
-            self.highlightOption = 0
-        elif highlight >= len(self.options):
-            self.highlightOption = len(self.options) - 1
-        else:
-            self.highlightOption = highlight
-
-    def change_highlight(self, by):
-        self.set_highlight(0 if self.highlightOption is None else self.highlightOption + by)
-
-    def blank(self, draw=False):
-        self.draw.rectangle((-1, -1, self.oled.width+1, self.oled.height+1), outline=0, fill=0)
-        if draw:
-            self.oled.image(self.image)
-            self.oled.display()
-
-    def render(self):
-        if self.renderThread is None or not self.renderThread.isAlive():
-            self.renderThread = threading.Thread(target=self.__render)
-            self.renderThread.start()
-
-    def __render(self):
-        self.blank()
-        self.__build()
-        self.oled.image(self.image)
+    def refreshDisplay(self, screen):
+        # Display image.
+        self.oled.image(screen)
+        # self.render()
         self.oled.display()
 
-    def __build(self):
-        # adjust the start/end positions of the range
-        if (self.highlightOption is None) or (self.highlightOption < self.rowCount):
-            start = 0
-            end = self.rowCount
-        elif self.highlightOption >= (len(self.options) - self.rowCount):
-            end = len(self.options)
-            start = end - self.rowCount
+    def setMenuOption(self, menu_num):
+        if menu_num%5 == 0:
+            print("home ", menu_num)
+            self.refreshDisplay(self.home)
+        elif menu_num%5 == 1:
+            print("start", menu_num)
+            self.refreshDisplay(self.start)
+        elif menu_num%5 == 2:
+            print("camera", menu_num)
+            self.refreshDisplay(self.camera)
+        elif menu_num%5 == 3:
+            print("adjust", menu_num)
+            self.refreshDisplay(self.adjust)
         else:
-            start = self.highlightOption
-            end = start + self.rowCount
+            print("settings", menu_num)
+            self.refreshDisplay(self.settings)
 
-        # draw the menu options
-        top = 0
-        for x in range(start, end):
-            fill = 1
-            if self.highlightOption is not None and self.highlightOption == x:
-                self.draw.rectangle([0, top, self.oled.width, top + 11], outline=0, fill=1)
-                fill = 0
-            self.draw.text((3, top + 1), self.options[x], font=self.font, fill=fill)
-            top += 10
+    def changeMenu(self, by):
+        self.menuOption = self.menuOption + by
+        self.setMenuOption(self.menuOption)
+
 

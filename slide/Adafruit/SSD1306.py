@@ -19,14 +19,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 from __future__ import division
-
 import logging
 import time
 
-import RPi.GPIO as GPIO
-
-#import Adafruit_GPIO as GPIO
-#import Adafruit_GPIO.SPI as SPI
+import Adafruit_GPIO as GPIO
+import Adafruit_GPIO.SPI as SPI
 
 
 # Constants
@@ -91,46 +88,56 @@ class SSD1306Base(object):
         if not self._rst is None:
             self._gpio.setup(self._rst, GPIO.OUT)
         # Handle hardware SPI
-        #if spi is not None:
-        #    self._log.debug('Using hardware SPI')
-        #    self._spi = spi
-        #    self._spi.set_clock_hz(8000000)
+        if spi is not None:
+            self._log.debug('Using hardware SPI')
+            self._spi = spi
+            self._spi.set_clock_hz(8000000)
         # Handle software SPI
-        #elif sclk is not None and din is not None and cs is not None:
-        #    self._log.debug('Using software SPI')
-        #    self._spi = SPI.BitBang(self._gpio, sclk, din, None, cs)
+        elif sclk is not None and din is not None and cs is not None:
+            self._log.debug('Using software SPI')
+            self._spi = SPI.BitBang(self._gpio, sclk, din, None, cs)
         # Handle hardware I2C
         elif i2c is not None:
             self._log.debug('Using hardware I2C with custom I2C provider.')
             self._i2c = i2c.get_i2c_device(i2c_address)
         else:
             self._log.debug('Using hardware I2C with platform I2C provider.')
-            import I2C
+            import Adafruit_GPIO.I2C as I2C
             if i2c_bus is None:
                 self._i2c = I2C.get_i2c_device(i2c_address)
             else:
                 self._i2c = I2C.get_i2c_device(i2c_address, busnum=i2c_bus)
         # Initialize DC pin if using SPI.
-        #if self._spi is not None:
-        #    if dc is None:
-        #        raise ValueError('DC pin must be provided when using SPI.')
-        #    self._dc = dc
-        #    self._gpio.setup(self._dc, GPIO.OUT)
+        if self._spi is not None:
+            if dc is None:
+                raise ValueError('DC pin must be provided when using SPI.')
+            self._dc = dc
+            self._gpio.setup(self._dc, GPIO.OUT)
 
     def _initialize(self):
         raise NotImplementedError
 
     def command(self, c):
         """Send command byte to display."""
-        # I2C write.
-        control = 0x00   # Co = 0, DC = 0
-        self._i2c.write8(control, c)
+        if self._spi is not None:
+            # SPI write.
+            self._gpio.set_low(self._dc)
+            self._spi.write([c])
+        else:
+            # I2C write.
+            control = 0x00   # Co = 0, DC = 0
+            self._i2c.write8(control, c)
 
     def data(self, c):
         """Send byte of data to display."""
-        # I2C write.
-        control = 0x40   # Co = 0, DC = 0
-        self._i2c.write8(control, c)
+        if self._spi is not None:
+            # SPI write.
+            self._gpio.set_high(self._dc)
+            self._spi.write([c])
+        else:
+            # I2C write.
+            control = 0x40   # Co = 0, DC = 0
+            self._i2c.write8(control, c)
 
     def begin(self, vccstate=SSD1306_SWITCHCAPVCC):
         """Initialize display."""
@@ -164,9 +171,15 @@ class SSD1306Base(object):
         self.command(0)              # Page start address. (0 = reset)
         self.command(self._pages-1)  # Page end address.
         # Write buffer data.
-        for i in range(0, len(self._buffer), 16):
-            control = 0x40   # Co = 0, DC = 0
-            self._i2c.writeList(control, self._buffer[i:i+16])
+        if self._spi is not None:
+            # Set DC high for data.
+            self._gpio.set_high(self._dc)
+            # Write buffer.
+            self._spi.write(self._buffer)
+        else:
+            for i in range(0, len(self._buffer), 16):
+                control = 0x40   # Co = 0, DC = 0
+                self._i2c.writeList(control, self._buffer[i:i+16])
 
     def image(self, image):
         """Set buffer to value of Python Imaging Library image.  The image should
@@ -219,6 +232,51 @@ class SSD1306Base(object):
                 contrast = 0x9F
             else:
                 contrast = 0xCF
+            self.set_contrast(contrast)
+
+class SSD1306_128_64(SSD1306Base):
+    def __init__(self, rst, dc=None, sclk=None, din=None, cs=None, gpio=None,
+                 spi=None, i2c_bus=None, i2c_address=SSD1306_I2C_ADDRESS,
+                 i2c=None):
+        # Call base class constructor.
+        super(SSD1306_128_64, self).__init__(128, 64, rst, dc, sclk, din, cs,
+                                             gpio, spi, i2c_bus, i2c_address, i2c)
+
+    def _initialize(self):
+        # 128x64 pixel specific initialization.
+        self.command(SSD1306_DISPLAYOFF)                    # 0xAE
+        self.command(SSD1306_SETDISPLAYCLOCKDIV)            # 0xD5
+        self.command(0x80)                                  # the suggested ratio 0x80
+        self.command(SSD1306_SETMULTIPLEX)                  # 0xA8
+        self.command(0x3F)
+        self.command(SSD1306_SETDISPLAYOFFSET)              # 0xD3
+        self.command(0x0)                                   # no offset
+        self.command(SSD1306_SETSTARTLINE | 0x0)            # line #0
+        self.command(SSD1306_CHARGEPUMP)                    # 0x8D
+        if self._vccstate == SSD1306_EXTERNALVCC:
+            self.command(0x10)
+        else:
+            self.command(0x14)
+        self.command(SSD1306_MEMORYMODE)                    # 0x20
+        self.command(0x00)                                  # 0x0 act like ks0108
+        self.command(SSD1306_SEGREMAP | 0x1)
+        self.command(SSD1306_COMSCANDEC)
+        self.command(SSD1306_SETCOMPINS)                    # 0xDA
+        self.command(0x12)
+        self.command(SSD1306_SETCONTRAST)                   # 0x81
+        if self._vccstate == SSD1306_EXTERNALVCC:
+            self.command(0x9F)
+        else:
+            self.command(0xCF)
+        self.command(SSD1306_SETPRECHARGE)                  # 0xd9
+        if self._vccstate == SSD1306_EXTERNALVCC:
+            self.command(0x22)
+        else:
+            self.command(0xF1)
+        self.command(SSD1306_SETVCOMDETECT)                 # 0xDB
+        self.command(0x40)
+        self.command(SSD1306_DISPLAYALLON_RESUME)           # 0xA4
+        self.command(SSD1306_NORMALDISPLAY)                 # 0xA6
 
 
 class SSD1306_128_32(SSD1306Base):
@@ -262,3 +320,44 @@ class SSD1306_128_32(SSD1306Base):
         self.command(SSD1306_DISPLAYALLON_RESUME)           # 0xA4
         self.command(SSD1306_NORMALDISPLAY)                 # 0xA6
 
+
+class SSD1306_96_16(SSD1306Base):
+    def __init__(self, rst, dc=None, sclk=None, din=None, cs=None, gpio=None,
+                 spi=None, i2c_bus=None, i2c_address=SSD1306_I2C_ADDRESS,
+                 i2c=None):
+        # Call base class constructor.
+        super(SSD1306_96_16, self).__init__(96, 16, rst, dc, sclk, din, cs,
+                                            gpio, spi, i2c_bus, i2c_address, i2c)
+
+    def _initialize(self):
+        # 128x32 pixel specific initialization.
+        self.command(SSD1306_DISPLAYOFF)                    # 0xAE
+        self.command(SSD1306_SETDISPLAYCLOCKDIV)            # 0xD5
+        self.command(0x60)                                  # the suggested ratio 0x60
+        self.command(SSD1306_SETMULTIPLEX)                  # 0xA8
+        self.command(0x0F)
+        self.command(SSD1306_SETDISPLAYOFFSET)              # 0xD3
+        self.command(0x0)                                   # no offset
+        self.command(SSD1306_SETSTARTLINE | 0x0)            # line #0
+        self.command(SSD1306_CHARGEPUMP)                    # 0x8D
+        if self._vccstate == SSD1306_EXTERNALVCC:
+            self.command(0x10)
+        else:
+            self.command(0x14)
+        self.command(SSD1306_MEMORYMODE)                    # 0x20
+        self.command(0x00)                                  # 0x0 act like ks0108
+        self.command(SSD1306_SEGREMAP | 0x1)
+        self.command(SSD1306_COMSCANDEC)
+        self.command(SSD1306_SETCOMPINS)                    # 0xDA
+        self.command(0x02)
+        self.command(SSD1306_SETCONTRAST)                   # 0x81
+        self.command(0x8F)
+        self.command(SSD1306_SETPRECHARGE)                  # 0xd9
+        if self._vccstate == SSD1306_EXTERNALVCC:
+            self.command(0x22)
+        else:
+            self.command(0xF1)
+        self.command(SSD1306_SETVCOMDETECT)                 # 0xDB
+        self.command(0x40)
+        self.command(SSD1306_DISPLAYALLON_RESUME)           # 0xA4
+        self.command(SSD1306_NORMALDISPLAY)                 # 0xA6
