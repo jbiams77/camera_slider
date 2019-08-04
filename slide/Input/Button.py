@@ -38,12 +38,13 @@ class Button:
 
 
     def __up(self, channel):
-        print('up')
-        self.menu.changeMenu(1)
+        # print('up')
+        self.menu.change(-1)
 
     def __down(self, channel):
-        print('down')
-        self.menu.changeMenu(-1)
+        # print('down')
+        self.menu.change(1)
 
     def __button(self, channel):
-        print('Button on pin {} pushed'.format(channel))
+        # print('select')
+        self.menu.select()
